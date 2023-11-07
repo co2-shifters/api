@@ -21,6 +21,13 @@ secret_id = "electricity_maps_token"
 # Create the Secret Manager client.
 client = secretmanager.SecretManagerServiceClient()
 
+
+def stringToDatetime(stringDateTime):
+    stringDateTime = stringDateTime.replace('Z', '+00:00')
+    return datetime.datetime.strptime(stringDateTime, "%Y-%m-%dT%H:%M:%S.%f%z")
+
+
+
 @app.route('/', methods=["POST"])
 def optimization():
     inputs = request.get_json(force=True)
@@ -47,8 +54,7 @@ def optimization():
     response = requests.get(url, headers=headers)    
     data = response.json()
 
-    dt_earliest_start_time = dt_earliest_start_time.replace('Z', '+00:00')
-    dt_earliest_start_datetime = datetime.datetime.strptime(dt_earliest_start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
+    dt_earliest_start_datetime = stringToDatetime(dt_earliest_start_time)
     end_time = dt_earliest_start_datetime + datetime.timedelta(minutes=int_duration)
     int_steps = int(math.ceil(int_duration/60))
     print(end_time)
@@ -56,13 +62,17 @@ def optimization():
     # Starttime
     data = data["forecast"]
 
+    dataFilter = []
+    for forecastPoint in data:
+        if stringToDatetime(forecastPoint["datetime"]) >= dt_earliest_start_datetime:
+            dataFilter.append(forecastPoint)
     list_total_co2 = []
-    for i in range(len(data) - int_steps + 1):
-        list_co2 = data[i:i + int_steps]
+    for i in range(len(dataFilter) - int_steps + 1):
+        list_co2 = dataFilter[i:i + int_steps]
         total_co2 = 0
         for j in list_co2: 
             total_co2 += j["carbonIntensity"]
-        list_total_co2.append((total_co2, data[i]["datetime"]))     
+        list_total_co2.append((total_co2, dataFilter[i]["datetime"]))
     lowest_co2 = float('inf')
     optimal_starttime = None
     for i, entry in enumerate(list_total_co2):
