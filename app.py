@@ -36,17 +36,26 @@ def optimization():
     print(int_duration)
     print(dt_latest_end_time)
 
-    forecast = api(json.dumps({"earliest_start_time": dt_earliest_start_time, "latest_end_time": dt_latest_end_time}))
-    print(forecast)
+    secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+    response = client.access_secret_version(request={"name": secret_name})
+    token = response.payload.data.decode("UTF-8")
 
-    data = forecast["forecast"]
+    url = "https://api.electricitymap.org/v3/carbon-intensity/forecast?zone=CH"
+    headers = {
+      "auth-token": token
+    }
+    response = requests.get(url, headers=headers)    
+    data = response.json()
+
     dt_earliest_start_time = dt_earliest_start_time.replace('Z', '+00:00')
     dt_earliest_start_datetime = datetime.datetime.strptime(dt_earliest_start_time, "%Y-%m-%dT%H:%M:%S.%f%z")
     end_time = dt_earliest_start_datetime + datetime.timedelta(minutes=int_duration)
     int_steps = int(math.ceil(int_duration/60))
     print(end_time)
 
-    int_steps = 2
+    # Starttime
+    data = data["forecast"]
+
     list_total_co2 = []
     for i in range(len(data) - int_steps + 1):
         list_co2 = data[i:i + int_steps]
@@ -81,37 +90,6 @@ def forecast():
   response = requests.get(url, headers=headers)    
 
   return response.text
-
-
-def api(time_window):
-    print(time_window)
-
-    obj = {
-    "forecast": [
-      {
-        "carbonIntensity": 74,
-        "datetime": "2023-11-06T09:00:00.000Z"
-      },
-      {
-        "carbonIntensity": 79,
-        "datetime": "2023-11-06T10:00:00.000Z"
-      },
-      {
-        "carbonIntensity": 81,
-        "datetime": "2023-11-06T11:00:00.000Z"
-      },
-      {
-        "carbonIntensity": 73,
-        "datetime": "2023-11-06T12:00:00.000Z"
-      },
-      {
-        "carbonIntensity": 75,
-        "datetime": "2023-11-06T13:00:00.000Z"
-      },
-     ]
-    }
-    return obj
-
 
 PORT = int(environ.get("PORT", 8082))
 if __name__ == '__main__':
