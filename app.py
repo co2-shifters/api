@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from os import environ
 import logging
+import json
 # from google.cloud import secretmanager
 
 app = Flask(__name__)
@@ -15,20 +16,29 @@ secret_id = "electricity_maps_token"
 # client = secretmanager.SecretManagerServiceClient()
 
 @app.route('/', methods=["POST"])
-def hello_world():
+def optimization():
     inputs = request.get_json(force=True)
-    input1 = inputs.get("input1", "missing1")
-    input2 = inputs.get("input2", "missing2")
-    input3 = inputs.get("input3", "missing3")
-    logging.info(input1)
-    logging.info(input2)
-    logging.info(input3)
-    
-#    secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-#    response = client.access_secret_version(request={"name": secret_name})
-#    token = response.payload.data.decode("UTF-8")
+    logging.info(inputs)
+    logging.info("=====")
+    print("=====>")
+    print(inputs)
 
-    return jsonify({"new_input1": input1, "new_input2": input2, "new_input3": input3, "token": token[:4]})
+    dt_earliest_start_time = inputs["earliest_start_time"]
+    int_duration = inputs["duration"]
+    dt_latest_end_time= inputs["latest_end_time"]
+    print(dt_earliest_start_time)
+    print(int_duration)
+    print(dt_latest_end_time)
+
+    forecast = api(json.dumps({"earliest_start_time": dt_earliest_start_time, "latest_end_time": dt_latest_end_time}))
+
+    #return jsonify({"new_input1": input1, "new_input2": input2, "new_input3": input3, "token": token[:4]})
+    return forecast
+
+def api(time_window):
+    print(time_window)
+    return jsonify({"new_input1": 2})
+
 
 PORT = int(environ.get("PORT", 8080))
 if __name__ == '__main__':
