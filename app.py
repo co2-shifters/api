@@ -1,3 +1,5 @@
+import json
+
 from flask import Flask, request, jsonify
 from os import environ
 import logging
@@ -45,12 +47,7 @@ def optimization():
     response = client.access_secret_version(request={"name": secret_name})
     token = response.payload.data.decode("UTF-8")
 
-    url = "https://api.electricitymap.org/v3/carbon-intensity/forecast?zone=CH"
-    headers = {
-        "auth-token": token
-    }
-    response = requests.get(url, headers=headers)
-    data = response.json()
+    data = forecastFromEmap()
 
     dt_earliest_start_datetime = stringToDatetime(dt_earliest_start_time)
     end_time_datetime = dt_earliest_start_datetime + datetime.timedelta(minutes=int_duration)
@@ -84,13 +81,19 @@ def optimization():
             lowest_co2 = entry[0]
             optimal_starttime = entry[1]
 
-    obj_opt = [{"opt_starttime": optimal_starttime, "tot_co2": lowest_co2}]
+    endtime_calculated = stringToDatetime(optimal_starttime) + datetime.timedelta(minutes=int_duration)
+    endtime_calculated = endtime_calculated.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+    obj_opt = [{"opt_starttime": optimal_starttime, "tot_co2": lowest_co2, "endtime": endtime_calculated}]
     return jsonify({"opt": obj_opt, "data": dataForOptimisation})
 
 
 # GET FORECAST
 @app.route('/forecast', methods=["GET"])
 def forecast():
+    return forecastFromEmap()
+
+
+def forecastFromEmap():
     secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
     response = client.access_secret_version(request={"name": secret_name})
     token = response.payload.data.decode("UTF-8")
@@ -101,7 +104,7 @@ def forecast():
     }
     response = requests.get(url, headers=headers)
 
-    return response.text
+    return response.json()
 
 
 PORT = int(environ.get("PORT", 8082))
