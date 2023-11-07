@@ -1,0 +1,17 @@
+steps:
+  - name: 'docker'
+    entrypoint: 'sh'
+    args: [ '-c', 'docker build -t europe-west6-docker.pkg.dev/$_TARGETPROJECT/$_TARGETPROJECT-repo/$_IMAGEPATH:$_TAG .' ]
+images: [
+  'europe-west6-docker.pkg.dev/$_TARGETPROJECT/$_TARGETPROJECT-repo/$_IMAGEPATH:$_TAG',
+]
+substitutions:
+  _TARGETPROJECT: the-co2-shifter
+  _IMAGEPATH: electricity-maps # default value, will be set by the pipeline or shell
+  _TAG: latest
+options:
+  logging: CLOUD_LOGGING_ONLY
+#serviceAccount: 'projects/$_TARGETPROJECT/serviceAccounts/si-$_TARGETPROJECT@$_TARGETPROJECT.iam.gserviceaccount.com'
+tags:
+  - 'the-co2-shifter'
+  - 'axa-hackathon-2023'
