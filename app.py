@@ -4,9 +4,13 @@ import logging
 import json
 import datetime
 import math 
-# from google.cloud import secretmanager
+import requests
+
+from google.cloud import secretmanager
 
 app = Flask(__name__)
+
+# from google.cloud import secretmanager
 
 # GCP project in which to store secrets in Secret Manager.
 project_id = "the-co2-shifter"
@@ -15,7 +19,7 @@ project_id = "the-co2-shifter"
 secret_id = "electricity_maps_token"
 
 # Create the Secret Manager client.
-# client = secretmanager.SecretManagerServiceClient()
+client = secretmanager.SecretManagerServiceClient()
 
 @app.route('/', methods=["POST"])
 def optimization():
@@ -58,6 +62,24 @@ def optimization():
             optimal_starttime = entry[1]
 
     return jsonify([{"opt_starttime": optimal_starttime, "tot_co2": lowest_co2}])
+
+
+# GET FORECAST
+@app.route('/forecast', methods=["GET"])
+def forecast():
+    
+  secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+  response = client.access_secret_version(request={"name": secret_name})
+  token = response.payload.data.decode("UTF-8")
+
+  url = "https://api.electricitymap.org/v3/carbon-intensity/forecast?zone=CH"
+  headers = {
+    "auth-token": token
+  }
+  response = requests.get(url, headers=headers)    
+
+  return response.text
+
 
 def api(time_window):
     print(time_window)
