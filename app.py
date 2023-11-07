@@ -57,7 +57,9 @@ def optimization():
             lowest_co2 = entry[0]
             optimal_starttime = entry[1]
 
-    return jsonify([{"opt_starttime": optimal_starttime, "tot_co2": lowest_co2}])
+    obj_opt = [{"opt_starttime": optimal_starttime, "tot_co2": lowest_co2}]
+    obj_data = data
+    return jsonify({ "opt": obj_opt, "data": obj_data})
 
 def api(time_window):
     print(time_window)
