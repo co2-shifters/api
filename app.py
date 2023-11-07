@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 from os import environ
 import logging
-import json
 import datetime
 import math 
 import requests
@@ -38,7 +37,7 @@ def optimization():
 
     dt_earliest_start_time = inputs["earliest_start_time"]
     int_duration = inputs["duration"]
-    dt_latest_end_time= inputs["latest_end_time"]
+    dt_latest_end_time = inputs["latest_end_time"]
     print(dt_earliest_start_time)
     print(int_duration)
     print(dt_latest_end_time)
@@ -55,9 +54,9 @@ def optimization():
     data = response.json()
 
     dt_earliest_start_datetime = stringToDatetime(dt_earliest_start_time)
-    end_time = dt_earliest_start_datetime + datetime.timedelta(minutes=int_duration)
+    end_time_datetime = dt_earliest_start_datetime + datetime.timedelta(minutes=int_duration)
     int_steps = int(math.ceil(int_duration/60))
-    print(end_time)
+    print(end_time_datetime)
 
     # Starttime
     data = data["forecast"]
@@ -66,6 +65,9 @@ def optimization():
     for forecastPoint in data:
         if stringToDatetime(forecastPoint["datetime"]) >= dt_earliest_start_datetime:
             dataFilter.append(forecastPoint)
+        if stringToDatetime(forecastPoint["datetime"]) > end_time_datetime:
+            dataFilter.remove(forecastPoint)
+
     list_total_co2 = []
     for i in range(len(dataFilter) - int_steps + 1):
         list_co2 = dataFilter[i:i + int_steps]
