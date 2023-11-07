@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from os import environ
 import logging
 import datetime
-import math 
+import math
 import requests
 
 from google.cloud import secretmanager
@@ -26,7 +26,6 @@ def stringToDatetime(stringDateTime):
     return datetime.datetime.strptime(stringDateTime, "%Y-%m-%dT%H:%M:%S.%f%z")
 
 
-
 @app.route('/', methods=["POST"])
 def optimization():
     inputs = request.get_json(force=True)
@@ -48,33 +47,36 @@ def optimization():
 
     url = "https://api.electricitymap.org/v3/carbon-intensity/forecast?zone=CH"
     headers = {
-      "auth-token": token
+        "auth-token": token
     }
-    response = requests.get(url, headers=headers)    
+    response = requests.get(url, headers=headers)
     data = response.json()
 
     dt_earliest_start_datetime = stringToDatetime(dt_earliest_start_time)
     end_time_datetime = dt_earliest_start_datetime + datetime.timedelta(minutes=int_duration)
-    int_steps = int(math.ceil(int_duration/60))
+    int_steps = int(math.ceil(int_duration / 60))
     print(end_time_datetime)
 
     # Starttime
     data = data["forecast"]
 
-    dataFilter = []
+    dataForOptimisation = []
     for forecastPoint in data:
         if stringToDatetime(forecastPoint["datetime"]) >= dt_earliest_start_datetime:
-            dataFilter.append(forecastPoint)
+            dataForOptimisation.append(forecastPoint)
         if stringToDatetime(forecastPoint["datetime"]) > end_time_datetime:
-            dataFilter.remove(forecastPoint)
+            dataForOptimisation.remove(forecastPoint)
 
     list_total_co2 = []
-    for i in range(len(dataFilter) - int_steps + 1):
-        list_co2 = dataFilter[i:i + int_steps]
+    if len(dataForOptimisation) < int_steps:
+        raise Exception("invalid duration or end/startdate")
+
+    for i in range(len(dataForOptimisation) - int_steps + 1):
+        list_co2 = dataForOptimisation[i:i + int_steps]
         total_co2 = 0
-        for j in list_co2: 
+        for j in list_co2:
             total_co2 += j["carbonIntensity"]
-        list_total_co2.append((total_co2, dataFilter[i]["datetime"]))
+        list_total_co2.append((total_co2, dataForOptimisation[i]["datetime"]))
     lowest_co2 = float('inf')
     optimal_starttime = None
     for i, entry in enumerate(list_total_co2):
@@ -83,25 +85,24 @@ def optimization():
             optimal_starttime = entry[1]
 
     obj_opt = [{"opt_starttime": optimal_starttime, "tot_co2": lowest_co2}]
-    obj_data = data
-    return jsonify({ "opt": obj_opt, "data": obj_data})
+    return jsonify({"opt": obj_opt, "data": dataForOptimisation})
 
 
 # GET FORECAST
 @app.route('/forecast', methods=["GET"])
 def forecast():
-    
-  secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-  response = client.access_secret_version(request={"name": secret_name})
-  token = response.payload.data.decode("UTF-8")
+    secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+    response = client.access_secret_version(request={"name": secret_name})
+    token = response.payload.data.decode("UTF-8")
 
-  url = "https://api.electricitymap.org/v3/carbon-intensity/forecast?zone=CH"
-  headers = {
-    "auth-token": token
-  }
-  response = requests.get(url, headers=headers)    
+    url = "https://api.electricitymap.org/v3/carbon-intensity/forecast?zone=CH"
+    headers = {
+        "auth-token": token
+    }
+    response = requests.get(url, headers=headers)
 
-  return response.text
+    return response.text
+
 
 PORT = int(environ.get("PORT", 8082))
 if __name__ == '__main__':
