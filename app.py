@@ -1,8 +1,6 @@
-import json
 
 from flask import Flask, request, jsonify
 from os import environ
-import logging
 import datetime
 import math
 import requests
@@ -31,49 +29,34 @@ def stringToDatetime(stringDateTime):
 @app.route('/', methods=["POST"])
 def optimization():
     inputs = request.get_json(force=True)
-    logging.info(inputs)
-    logging.info("=====")
-    print("=====>")
-    print(inputs)
 
-    dt_earliest_start_time = inputs["earliest_start_time"]
+    dt_earliest_start_time = stringToDatetime(inputs["earliest_start_time"])
     int_duration = inputs["duration"]
-    dt_latest_end_time = inputs["latest_end_time"]
-    print(dt_earliest_start_time)
-    print(int_duration)
-    print(dt_latest_end_time)
-
-    secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-    response = client.access_secret_version(request={"name": secret_name})
-    token = response.payload.data.decode("UTF-8")
+    dt_latest_end_time = stringToDatetime(inputs["latest_end_time"])
 
     data = forecastFromEmap()
 
-    dt_earliest_start_datetime = stringToDatetime(dt_earliest_start_time)
-    end_time_datetime = dt_earliest_start_datetime + datetime.timedelta(minutes=int_duration)
     int_steps = int(math.ceil(int_duration / 60))
-    print(end_time_datetime)
 
-    # Starttime
-    data = data["forecast"]
+    forecast_data = data["forecast"]
 
-    dataForOptimisation = []
-    for forecastPoint in data:
-        if stringToDatetime(forecastPoint["datetime"]) >= dt_earliest_start_datetime:
-            dataForOptimisation.append(forecastPoint)
-        if stringToDatetime(forecastPoint["datetime"]) > end_time_datetime:
-            dataForOptimisation.remove(forecastPoint)
+    data_for_optimisation = []
+    for forecastPoint in forecast_data:
+        if stringToDatetime(forecastPoint["datetime"]) >= dt_earliest_start_time:
+            data_for_optimisation.append(forecastPoint)
+        if stringToDatetime(forecastPoint["datetime"]) > dt_latest_end_time:
+            data_for_optimisation.remove(forecastPoint)
 
     list_total_co2 = []
-    if len(dataForOptimisation) < int_steps:
+    if len(data_for_optimisation) < int_steps:
         raise Exception("invalid duration or end/startdate")
 
-    for i in range(len(dataForOptimisation) - int_steps + 1):
-        list_co2 = dataForOptimisation[i:i + int_steps]
+    for i in range(len(data_for_optimisation) - int_steps + 1):
+        list_co2 = data_for_optimisation[i:i + int_steps]
         total_co2 = 0
         for j in list_co2:
             total_co2 += j["carbonIntensity"]
-        list_total_co2.append((total_co2, dataForOptimisation[i]["datetime"]))
+        list_total_co2.append((total_co2, data_for_optimisation[i]["datetime"]))
     lowest_co2 = float('inf')
     optimal_starttime = None
     for i, entry in enumerate(list_total_co2):
@@ -84,7 +67,7 @@ def optimization():
     endtime_calculated = stringToDatetime(optimal_starttime) + datetime.timedelta(minutes=int_duration)
     endtime_calculated = endtime_calculated.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
     obj_opt = [{"opt_starttime": optimal_starttime, "tot_co2": lowest_co2, "endtime": endtime_calculated}]
-    return jsonify({"opt": obj_opt, "data": dataForOptimisation})
+    return jsonify({"opt": obj_opt, "data": data_for_optimisation})
 
 
 # GET FORECAST
