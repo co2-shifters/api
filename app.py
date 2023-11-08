@@ -9,6 +9,7 @@ from google.cloud import secretmanager
 
 #  Create a Flask app
 app = Flask(__name__)
+app.json.sort_keys = False
 
 # GCP project in which to store secrets in Secret Manager.
 project_id = "the-co2-shifter"
@@ -81,11 +82,14 @@ def optimization():
         percentage_saved = round(percentage_saved, 2)
 
         fixed_saved = first_entry - entry[0]
+
+        average_save = (entry[0] / int_steps) * (int_duration/60)
+
         endtime_calculated = stringToDatetime(entry[1]) + datetime.timedelta(minutes=int_duration)
         endtime_calculated = endtime_calculated.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
         top_3.append(
-            {"ranking": index + 1, "opt_starttime": entry[1], "tot_co2": entry[0], "percentage_saved": percentage_saved,
-             "fixed_saved": fixed_saved, "endtime_calculated": endtime_calculated})
+            {"ranking": index + 1,  "tot_co2": entry[0], "percentage_saved": percentage_saved,
+             "fixed_saved": fixed_saved, "average_save": average_save, "opt_starttime": entry[1], "endtime_calculated": endtime_calculated})
 
     return jsonify({"opt": top_3, "data": data})
 
