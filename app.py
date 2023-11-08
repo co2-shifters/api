@@ -55,9 +55,6 @@ def optimization():
     if len(data_for_optimisation) < int_steps:
         raise Exception("invalid duration or end/startdate")
 
-    # Create top 3 list
-    top_3 = []
-
     # Create groups for steps needed and calculate the total co2 for each group
     list_total_co2 = []
     first_entry = 0
@@ -80,7 +77,6 @@ def optimization():
 
     top_3 = []
     for index, entry in enumerate(lowest_total_entries):
-        print(entry[0])
         percentage_saved = 100 - (entry[0] / first_entry * 100)
         percentage_saved = round(percentage_saved, 2)
 
