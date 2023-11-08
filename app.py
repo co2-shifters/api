@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 from os import environ
 import datetime
@@ -8,7 +7,7 @@ import requests
 # From google.cloud import secretmanager
 from google.cloud import secretmanager
 
-# Create a Flask app
+#  Create a Flask app
 app = Flask(__name__)
 
 # GCP project in which to store secrets in Secret Manager.
@@ -20,6 +19,7 @@ secret_id = "electricity_maps_token"
 # Create the Secret Manager client.
 client = secretmanager.SecretManagerServiceClient()
 
+
 # Function to convert a string to a datetime object
 def stringToDatetime(stringDateTime):
     stringDateTime = stringDateTime.replace('Z', '+00:00')
@@ -28,7 +28,6 @@ def stringToDatetime(stringDateTime):
 
 @app.route('/', methods=["POST"])
 def optimization():
-    
     # Inputs from the request
     inputs = request.get_json(force=True)
 
@@ -51,47 +50,48 @@ def optimization():
             data_for_optimisation.append(forecastPoint)
         if stringToDatetime(forecastPoint["datetime"]) > dt_latest_end_time:
             data_for_optimisation.remove(forecastPoint)
-    
+
     # Error handling if time is too short
     if len(data_for_optimisation) < int_steps:
         raise Exception("invalid duration or end/startdate")
-    
+
     # Create top 3 list
     top_3 = []
 
     # Create groups for steps needed and calculate the total co2 for each group
     list_total_co2 = []
-    first_entry = None
+    first_entry = 0
     for i in range(len(data_for_optimisation) - int_steps + 1):
         list_co2 = data_for_optimisation[i:i + int_steps]
         total_co2 = 0
         for j in list_co2:
             total_co2 += j["carbonIntensity"]
         list_total_co2.append((total_co2, data_for_optimisation[i]["datetime"]))
-        if first_entry is None:
+        if first_entry == 0:
             first_entry = total_co2
     lowest_co2 = float('inf')
 
-    # Find the lowest co2 and the optimal start time
-    optimal_starttime = None
-    for i, entry in enumerate(list_total_co2):
-        if entry[0] < lowest_co2:
-            lowest_co2 = entry[0]
-            optimal_starttime = entry[1]
+    # Sort the data by total
+    sorted_data = sorted(list_total_co2, key=lambda pair: pair[0])
 
-    # Calculate the percentageSaved using the overall highest intensity
-    percentage_saved = 100 - (lowest_co2 / first_entry * 100)
+    # Get the three entries with the lowest total
+    lowest_total_entries = sorted_data[:3]
+    print(lowest_total_entries)
 
-    # Round to a whole number
-    percentage_saved = round(percentage_saved, 2)
-    fixed_saved =  first_entry - lowest_co2
+    top_3 = []
+    for index, entry in enumerate(lowest_total_entries):
+        print(entry[0])
+        percentage_saved = 100 - (entry[0] / first_entry * 100)
+        percentage_saved = round(percentage_saved, 2)
 
-    endtime_calculated = stringToDatetime(optimal_starttime) + datetime.timedelta(minutes=int_duration)
-    endtime_calculated = endtime_calculated.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+        fixed_saved = first_entry - entry[0]
+        endtime_calculated = stringToDatetime(entry[1]) + datetime.timedelta(minutes=int_duration)
+        endtime_calculated = endtime_calculated.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+        top_3.append(
+            {"ranking": index + 1, "opt_starttime": entry[1], "tot_co2": entry[0], "percentage_saved": percentage_saved,
+             "fixed_saved": fixed_saved, "endtime_calculated": endtime_calculated})
 
-
-    obj_opt = [{"opt_starttime": optimal_starttime, "tot_co2": lowest_co2, "endtime": endtime_calculated, "percentage_saved": percentage_saved, "fixed_saved": fixed_saved}]
-    return jsonify({"opt": obj_opt, "data": data_for_optimisation})
+    return jsonify({"opt": top_3, "data": data})
 
 
 # GET FORECAST
@@ -99,7 +99,8 @@ def optimization():
 def forecast():
     return forecastFromEmap()
 
-# Function to get the forecast from the Electricity Map API
+
+#  Function to get the forecast from the Electricity Map API
 def forecastFromEmap():
     secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
     response = client.access_secret_version(request={"name": secret_name})
